@@ -1,0 +1,40 @@
+{
+  "backup_path": "~/.backup",
+  "sql": {
+    "username": "blabla",
+    "password": "blabla",
+    "backup_path": "sql"
+  },
+  "apt": {
+    "backup_path": "apt"
+  },
+  "duplicity": {
+    "backup_path": "duplicity",
+    "source_path": "/",
+    "key": "test",
+    "filelist": [
+      "- /bin",
+      "- /boot",
+      "- /cdrom",
+      "+ /home/aboro/test",
+      "#+ /home/aboro/projects",
+      "- /home",
+      "- /run",
+      "- /sbin",
+      "- /snap",
+      "- /srv",
+      "- /swapfile",
+      "- /sys",
+      "- /tmp",
+      "- /usr",
+      "- /var",
+      "- /vmlinuz",
+      "- /vmlinuz.old"
+    ],
+    "include": [
+    ],
+    "exclude": [
+      "**/exclude"
+    ]
+  }
+}
