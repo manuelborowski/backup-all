@@ -4,10 +4,11 @@
 # 0 */1 * * * cd /home/aboro/projects/backup-all && python backup.py >> backup_projects.log 2>&1
 
 # V1.0 : copy from project sqlbackup
+# V1.1 : finished : dump-sql, apt-clone, duplicity and rclone
 
 import sys, datetime, subprocess, os, glob, json, argparse
 
-version = 'V1.0'
+version = 'V1.1'
 
 
 def create_and_change_dir(config, relative_path):
@@ -95,7 +96,8 @@ def duplicity_add_path(config, path, include=True):
 
 def duplicity(config, arguments):
     try:
-        create_and_change_dir(config, config['duplicity']['backup_path'])
+        path = create_and_change_dir(config, config['duplicity']['backup_path'])
+        rclone_overwrite_source_path(config, path)
         source_path = config['duplicity']['source_path']
         key = config['duplicity']['key']
         include_option = ''
@@ -127,48 +129,17 @@ def duplicity(config, arguments):
     except Exception as e:
         print(f"Could not duplicity : {e}")
 
-        # for d in databases:
-        #     dump_file = f'{d}-{timestamp}.sql'
-        #     print(f'>>> Dumping : {dump_file} <<<<')
-        #
-        #     of = open(dump_file, 'w')
-        #     dump = subprocess.run(f'mysqldump -u {sql_username} -p{sql_password} --skip-dump-date --routines {d}'.split(), stdout=of)
-        #     if dump.returncode == 0:
-        #         print('Dump was OK')
-        #     else:
-        #         print(f'Dump was NOK : returncode {dump.returncode}')
-        #         rm = subprocess.run(f'rm {dump_file}'.split())
-        #         continue
-        #
-        #     hash = subprocess.check_output(f'sha1sum {dump_file}', shell=True).split()[0]
-        #
-        #     dump_list = sorted(glob.glob(f'{d}*'), key=os.path.getmtime)
-        #     if len(dump_list) > 1:  # a previous sql dump file is already present
-        #         previous_dump = dump_list[-2]
-        #         previous_hash = subprocess.check_output(f'sha1sum {previous_dump}', shell=True).split()[0]
-        #         if hash == previous_hash:
-        #             print('This dump is equal to the previous one, remove latest dump and keep previous one')
-        #             rm = subprocess.run(f'rm {dump_file}'.split())
-        #             if rm.returncode != 0:
-        #                 print(f'Error, could not remove {dump_file}')
-        #                 continue
-        #         else:
-        #             print('This dump has changed, remove previous dump')
-        #             rm = subprocess.run(f'rm {previous_dump}'.split())
-        #             if rm.returncode != 0:
-        #                 print(f'Error, could not remove {previous_dump}')
-        #                 continue
-        #             if arguments.store_in_cloud:
-        #                 rclone = subprocess.run(f'rclone copy {dump_file} {backup_path}/{d}'.split())
-        #                 if rclone.returncode != 0:
-        #                     print(f'Error, could not rclone {dump_file}')
-        #                     continue
-        #     elif len(dump_list) == 1 and arguments.store_in_cloud:  # no sql dump file present yet
-        #         rclone = subprocess.run(f'rclone copy {dump_file} {backup_path}/{d}'.split())
-        #         if rclone.returncode != 0:
-        #             print(f'Error, could not rclone {dump_file}')
-        #             continue
 
+def rclone_overwrite_source_path(config, path):
+    config['rclone']['source_path'] = path
+
+
+def rclone_copy(config, arguments):
+    source_path = config['rclone']['source_path']
+    backup_path = config['rclone']['backup_path']
+    rclone = subprocess.run(f'rclone copy {source_path} {backup_path}'.split())
+    if rclone.returncode != 0:
+        print(f'Error, could not rclone from {source_path} to {backup_path}')
 
 
 if __name__ == '__main__':
@@ -189,5 +160,5 @@ if __name__ == '__main__':
     export_sql(configuration, program_arguments)
     clone_apt(configuration, program_arguments)
     duplicity(configuration, program_arguments)
-
+    rclone_copy(configuration, program_arguments)
     sys.exit()

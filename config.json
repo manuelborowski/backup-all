@@ -12,13 +12,30 @@
     "backup_path": "duplicity",
     "source_path": "/",
     "key": "test",
+    "include": [
+    ],
+    "exclude": [
+      "**/exclude"
+    ],
     "filelist": [
       "- /bin",
       "- /boot",
       "- /cdrom",
+      "- /dev",
+      "- /etc",
       "+ /home/aboro/test",
       "#+ /home/aboro/projects",
       "- /home",
+      "- /initrd.img",
+      "- /initrd.img.old",
+      "- /lib",
+      "- /lib64",
+      "- /lost+found",
+      "- /media",
+      "- /mnt",
+      "- /opt",
+      "- /proc",
+      "- /root",
       "- /run",
       "- /sbin",
       "- /snap",
@@ -30,11 +47,10 @@
       "- /var",
       "- /vmlinuz",
       "- /vmlinuz.old"
-    ],
-    "include": [
-    ],
-    "exclude": [
-      "**/exclude"
     ]
+  },
+  "rclone": {
+    "backup_path": "blabla:backup-blabla",
+    "source_path": "~/.rlcone"
   }
 }
