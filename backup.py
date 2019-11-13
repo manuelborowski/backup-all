@@ -5,10 +5,11 @@
 
 # V1.0 : copy from project sqlbackup
 # V1.1 : finished : dump-sql, apt-clone, duplicity and rclone
+# V1.2 : apt-clone needs to be explicitly included via a flag
 
 import sys, datetime, subprocess, os, glob, json, argparse
 
-version = 'V1.1'
+version = 'V1.2'
 
 
 def create_and_change_dir(config, relative_path):
@@ -48,28 +49,26 @@ def export_sql(config, arguments):
         dump = subprocess.run(f'mysqldump -u {sql_username} -p{sql_password} --skip-dump-date --all-databases'.split(), stdout=of)
         if dump.returncode == 0:
             print('Dump was OK')
+            hash = subprocess.check_output(f'sha1sum {dump_file_timestamp}', shell=True).split()[0]
+            dump_list = sorted(glob.glob(f'{dump_file}*'), key=os.path.getmtime)
+            if len(dump_list) > 1:  # a previous sql dump file is already present
+                previous_dump = dump_list[-2]
+                previous_hash = subprocess.check_output(f'sha1sum {previous_dump}', shell=True).split()[0]
+                if hash == previous_hash:
+                    print('This dump is equal to the previous one, remove latest dump and keep previous one')
+                    rm = subprocess.run(f'rm {dump_file_timestamp}'.split())
+                    if rm.returncode != 0:
+                        print(f'Error, could not remove {dump_file_timestamp}')
+                else:
+                    print('This dump has changed, remove previous dump')
+                    rm = subprocess.run(f'rm {previous_dump}'.split())
+                    if rm.returncode != 0:
+                        print(f'Error, could not remove {previous_dump}')
         else:
             print(f'Dump was NOK : returncode {dump.returncode}')
             rm = subprocess.run(f'rm {dump_file_timestamp}'.split())
             if rm.returncode != 0:
                 print(f'Error, could not remove {dump_file_timestamp}')
-
-        hash = subprocess.check_output(f'sha1sum {dump_file_timestamp}', shell=True).split()[0]
-        dump_list = sorted(glob.glob(f'{dump_file}*'), key=os.path.getmtime)
-        if len(dump_list) > 1:  # a previous sql dump file is already present
-            previous_dump = dump_list[-2]
-            previous_hash = subprocess.check_output(f'sha1sum {previous_dump}', shell=True).split()[0]
-            if hash == previous_hash:
-                print('This dump is equal to the previous one, remove latest dump and keep previous one')
-                rm = subprocess.run(f'rm {dump_file_timestamp}'.split())
-                if rm.returncode != 0:
-                    print(f'Error, could not remove {dump_file_timestamp}')
-            else:
-                print('This dump has changed, remove previous dump')
-                rm = subprocess.run(f'rm {previous_dump}'.split())
-                if rm.returncode != 0:
-                    print(f'Error, could not remove {previous_dump}')
-
     except Exception as e:
         print(f"Could not dump sql : {e}")
 
@@ -78,12 +77,11 @@ def clone_apt(config, arguments):
     try:
         path = create_and_change_dir(config, config['apt']['backup_path'])
         duplicity_add_path(config, path)
-        dump = subprocess.run(f'apt-clone clone --with-dpkg-repack .'.split())
-        if dump.returncode == 0:
+        clone = subprocess.run(f'apt-clone clone --with-dpkg-repack .'.split())
+        if clone.returncode == 0:
             print('Clone was OK')
         else:
-            print(f'Clone was NOK : returncode {dump.returncode}')
-
+            print(f'Clone was NOK : returncode {clone.returncode}')
     except Exception as e:
         print(f"Could not apt-clone : {e}")
 
@@ -145,7 +143,7 @@ def rclone_copy(config, arguments):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Update sql database(s) and store in cloud')
     parser.add_argument('--config', dest='config_filename', action='store')
-    parser.add_argument('--no-cloud', dest='store_in_cloud', action='store_false')
+    parser.add_argument('--include-apt-clone', dest='do_apt_clone', action='store_true')
     parser.add_argument('--version', action='version', version=f'version: {version}')
     program_arguments = parser.parse_args()
 
@@ -158,7 +156,8 @@ if __name__ == '__main__':
 
     init(configuration, program_arguments)
     export_sql(configuration, program_arguments)
-    clone_apt(configuration, program_arguments)
+    if program_arguments.do_apt_clone:
+        clone_apt(configuration, program_arguments)
     duplicity(configuration, program_arguments)
     rclone_copy(configuration, program_arguments)
     sys.exit()
