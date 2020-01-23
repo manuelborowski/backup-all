@@ -6,10 +6,11 @@
 # V1.0 : copy from project sqlbackup
 # V1.1 : finished : dump-sql, apt-clone, duplicity and rclone
 # V1.2 : apt-clone needs to be explicitly included via a flag
+# V1.3 : added tracing
 
 import sys, datetime, subprocess, os, glob, json, argparse
 
-version = 'V1.2'
+version = 'V1.3'
 
 
 def create_and_change_dir(config, relative_path):
@@ -23,6 +24,7 @@ def create_and_change_dir(config, relative_path):
 
 
 def init(config, arguments):
+    print('Initializing...', datetime.datetime.now())
     backup_path = config['backup_path']
     if '~' in backup_path:
         backup_path = config['backup_path'] = os.path.expanduser(backup_path)
@@ -34,6 +36,7 @@ def init(config, arguments):
 
 
 def export_sql(config, arguments):
+    print('Export SQL...', datetime.datetime.now())
     try:
         path = create_and_change_dir(config, config['sql']['backup_path'])
         duplicity_add_path(config, path)
@@ -74,6 +77,7 @@ def export_sql(config, arguments):
 
 
 def clone_apt(config, arguments):
+    print('clone_apt...', datetime.datetime.now())
     try:
         path = create_and_change_dir(config, config['apt']['backup_path'])
         duplicity_add_path(config, path)
@@ -93,6 +97,7 @@ def duplicity_add_path(config, path, include=True):
 
 
 def duplicity(config, arguments):
+    print('Duplicity...', datetime.datetime.now())
     try:
         path = create_and_change_dir(config, config['duplicity']['backup_path'])
         rclone_overwrite_source_path(config, path)
@@ -118,9 +123,10 @@ def duplicity(config, arguments):
                 file_option += f' --include {split_line[0]}'
 
         duplicity_command = f'env PASSPHRASE={key} duplicity {include_option} {exclude_option} {file_option} {source_path} file://.'
+        print('duplicity command:' ,duplicity_command)
         dump = subprocess.run(duplicity_command.split())
         if dump.returncode == 0:
-            print('Duplicity was OK')
+            print('Duplicity was OK'    )
         else:
             print(f'Duplicity was NOK : returncode {dump.returncode}')
 
